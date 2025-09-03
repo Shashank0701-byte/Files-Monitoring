@@ -2,79 +2,31 @@ import os
 import time
 import shutil
 from pathlib import Path
-
-# File extension to folder mapping
-FILE_EXTENSIONS = {
-    # Documents
-    '.pdf': 'Documents',
-    '.doc': 'Documents',
-    '.docx': 'Documents',
-    '.txt': 'Documents',
-    '.rtf': 'Documents',
-    '.xls': 'Documents',
-    '.xlsx': 'Documents',
-    '.ppt': 'Documents',
-    '.pptx': 'Documents',
-    
-    # Images
-    '.jpg': 'Pictures',
-    '.jpeg': 'Pictures',
-    '.png': 'Pictures',
-    '.gif': 'Pictures',
-    '.bmp': 'Pictures',
-    '.tiff': 'Pictures',
-    '.svg': 'Pictures',
-    '.webp': 'Pictures',
-    
-    # Videos
-    '.mp4': 'Videos',
-    '.avi': 'Videos',
-    '.mkv': 'Videos',
-    '.mov': 'Videos',
-    '.wmv': 'Videos',
-    '.flv': 'Videos',
-    '.webm': 'Videos',
-    
-    # Audio
-    '.mp3': 'Music',
-    '.wav': 'Music',
-    '.flac': 'Music',
-    '.aac': 'Music',
-    '.ogg': 'Music',
-    '.wma': 'Music',
-    
-    # Archives
-    '.zip': 'Downloads/Archives',
-    '.rar': 'Downloads/Archives',
-    '.7z': 'Downloads/Archives',
-    '.tar': 'Downloads/Archives',
-    '.gz': 'Downloads/Archives',
-    
-    # Executables
-    '.exe': 'Downloads/Software',
-    '.msi': 'Downloads/Software',
-    '.deb': 'Downloads/Software',
-    '.dmg': 'Downloads/Software'
-}
+from file_organizer_config import FILE_EXTENSIONS, DEFAULT_FOLDER
 
 def get_destination_folder(file_extension):
     """Get the destination folder for a file based on its extension."""
     folder_name = FILE_EXTENSIONS.get(file_extension.lower())
     if folder_name:
-        if folder_name.startswith('Downloads/'):
-            # For subfolders within Downloads
+        if '/' in folder_name:
+            # For subfolders (e.g., Downloads/Archives)
             return Path.home() / folder_name
         else:
             # For standard user folders
             return Path.home() / folder_name
     else:
-        # Unknown file types stay in Downloads/Others
-        return Path.home() / 'Downloads' / 'Others'
+        # Unknown file types go to default folder
+        return Path.home() / DEFAULT_FOLDER
 
 def move_file(source_path, file_name):
     """Move file to appropriate folder based on extension."""
     file_path = Path(source_path) / file_name
     file_extension = file_path.suffix
+    
+    # Skip if no extension
+    if not file_extension:
+        print(f"  → Skipping {file_name} (no extension)")
+        return None
     
     # Get destination folder
     dest_folder = get_destination_folder(file_extension)
@@ -98,8 +50,28 @@ def move_file(source_path, file_name):
         shutil.move(str(file_path), str(dest_path))
         return dest_path
     except Exception as e:
-        print(f"Error moving file {file_name}: {e}")
+        print(f"  → Error moving file {file_name}: {e}")
         return None
+
+def print_organization_rules():
+    """Print the current file organization rules."""
+    print("\n📋 File Organization Rules:")
+    print("=" * 50)
+    
+    # Group extensions by destination folder
+    folder_groups = {}
+    for ext, folder in FILE_EXTENSIONS.items():
+        if folder not in folder_groups:
+            folder_groups[folder] = []
+        folder_groups[folder].append(ext)
+    
+    for folder, extensions in sorted(folder_groups.items()):
+        print(f"📁 {folder}:")
+        print(f"   {', '.join(sorted(extensions))}")
+    
+    print(f"📁 {DEFAULT_FOLDER}:")
+    print("   All other file types")
+    print("=" * 50)
 
 def monitor_downloads_folder():
     """Monitor the Downloads folder for new files and organize them."""
@@ -108,20 +80,24 @@ def monitor_downloads_folder():
     
     # Check if Downloads folder exists
     if not downloads_path.exists():
-        print(f"Downloads folder not found at: {downloads_path}")
+        print(f"❌ Downloads folder not found at: {downloads_path}")
         print("Please make sure the Downloads folder exists.")
         return
     
-    print(f"Monitoring Downloads folder: {downloads_path}")
-    print("Files will be automatically organized by type.")
-    print("Press Ctrl+C to stop monitoring...")
+    print(f"🔍 Monitoring Downloads folder: {downloads_path}")
+    print("📦 Files will be automatically organized by type.")
+    
+    # Show organization rules
+    print_organization_rules()
+    
+    print("\n🚀 Starting monitor... Press Ctrl+C to stop.")
     
     # Get initial set of files
     previous_files = set()
     try:
         previous_files = set(os.listdir(downloads_path))
     except OSError as e:
-        print(f"Error accessing Downloads folder: {e}")
+        print(f"❌ Error accessing Downloads folder: {e}")
         return
     
     try:
@@ -139,26 +115,27 @@ def monitor_downloads_folder():
                 for file_name in new_files:
                     file_path = downloads_path / file_name
                     if file_path.is_file():  # Only process actual files, not directories
-                        print(f"New file detected: {file_name}")
+                        print(f"\n📄 New file detected: {file_name}")
                         
                         # Move file to appropriate folder
                         moved_path = move_file(downloads_path, file_name)
                         if moved_path:
-                            print(f"  → Moved to: {moved_path}")
+                            relative_path = moved_path.relative_to(Path.home())
+                            print(f"  ✅ Moved to: ~/{relative_path}")
                         else:
-                            print(f"  → Failed to move file")
+                            print(f"  ❌ Failed to move file")
                 
                 # Update previous files set
                 previous_files = current_files
                 
             except OSError as e:
-                print(f"Error checking folder: {e}")
+                print(f"❌ Error checking folder: {e}")
                 time.sleep(5)  # Wait longer if there's an error
                 
     except KeyboardInterrupt:
-        print("\nStopping file monitor...")
+        print("\n\n🛑 Stopping file monitor...")
     
-    print("File monitoring stopped.")
+    print("✨ File monitoring stopped.")
 
 if __name__ == "__main__":
     monitor_downloads_folder()

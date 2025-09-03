@@ -1,0 +1,119 @@
+{
+  "file_extensions": {
+    "_comment": "Define where files should be moved based on their extensions",
+    "_format": "extension: destination_folder",
+    "_paths": "Use relative paths from user home directory (e.g., 'Documents' or 'Downloads/Archives')",
+    
+    "documents": {
+      ".pdf": "Documents",
+      ".doc": "Documents",
+      ".docx": "Documents",
+      ".txt": "Documents",
+      ".rtf": "Documents",
+      ".xls": "Documents",
+      ".xlsx": "Documents",
+      ".ppt": "Documents",
+      ".pptx": "Documents",
+      ".odt": "Documents",
+      ".ods": "Documents",
+      ".odp": "Documents"
+    },
+    
+    "images": {
+      ".jpg": "Pictures",
+      ".jpeg": "Pictures",
+      ".png": "Pictures",
+      ".gif": "Pictures",
+      ".bmp": "Pictures",
+      ".tiff": "Pictures",
+      ".svg": "Pictures",
+      ".webp": "Pictures",
+      ".ico": "Pictures",
+      ".raw": "Pictures"
+    },
+    
+    "videos": {
+      ".mp4": "Videos",
+      ".avi": "Videos",
+      ".mkv": "Videos",
+      ".mov": "Videos",
+      ".wmv": "Videos",
+      ".flv": "Videos",
+      ".webm": "Videos",
+      ".m4v": "Videos",
+      ".mpg": "Videos",
+      ".mpeg": "Videos"
+    },
+    
+    "audio": {
+      ".mp3": "Music",
+      ".wav": "Music",
+      ".flac": "Music",
+      ".aac": "Music",
+      ".ogg": "Music",
+      ".wma": "Music",
+      ".m4a": "Music",
+      ".opus": "Music"
+    },
+    
+    "archives": {
+      ".zip": "Downloads/Archives",
+      ".rar": "Downloads/Archives",
+      ".7z": "Downloads/Archives",
+      ".tar": "Downloads/Archives",
+      ".gz": "Downloads/Archives",
+      ".bz2": "Downloads/Archives",
+      ".xz": "Downloads/Archives"
+    },
+    
+    "software": {
+      ".exe": "Downloads/Software",
+      ".msi": "Downloads/Software",
+      ".deb": "Downloads/Software",
+      ".dmg": "Downloads/Software",
+      ".pkg": "Downloads/Software",
+      ".appx": "Downloads/Software"
+    },
+    
+    "code": {
+      ".py": "Documents/Code",
+      ".js": "Documents/Code",
+      ".html": "Documents/Code",
+      ".css": "Documents/Code",
+      ".java": "Documents/Code",
+      ".cpp": "Documents/Code",
+      ".c": "Documents/Code",
+      ".php": "Documents/Code",
+      ".rb": "Documents/Code",
+      ".go": "Documents/Code",
+      ".rs": "Documents/Code",
+      ".ts": "Documents/Code",
+      ".json": "Documents/Code",
+      ".xml": "Documents/Code",
+      ".yml": "Documents/Code",
+      ".yaml": "Documents/Code"
+    },
+    
+    "books": {
+      ".epub": "Documents/Books",
+      ".mobi": "Documents/Books",
+      ".azw": "Documents/Books",
+      ".azw3": "Documents/Books"
+    },
+    
+    "fonts": {
+      ".ttf": "Downloads/Fonts",
+      ".otf": "Downloads/Fonts",
+      ".woff": "Downloads/Fonts",
+      ".woff2": "Downloads/Fonts"
+    }
+  },
+  
+  "settings": {
+    "default_folder": "Downloads/Others",
+    "check_interval_seconds": 1,
+    "handle_duplicates": true,
+    "create_folders": true,
+    "case_sensitive": false
+  }
+}

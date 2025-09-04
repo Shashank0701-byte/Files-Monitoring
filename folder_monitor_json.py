@@ -2,7 +2,9 @@ import os
 import time
 import shutil
 import json
+import logging
 from pathlib import Path
+from datetime import datetime
 
 class FileOrganizerConfig:
     """Handle loading and managing file organization configuration from JSON."""
@@ -11,13 +13,50 @@ class FileOrganizerConfig:
         self.config_file = Path(config_file)
         self.file_extensions = {}
         self.settings = {}
+        self.logger = self.setup_logging()
         self.load_config()
+    
+    def setup_logging(self):
+        """Setup logging for the file organizer."""
+        # Create log directory
+        log_dir = Path.home() / "AppData" / "Local" / "FileOrganizer"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Setup logger
+        logger = logging.getLogger('FileOrganizer')
+        logger.setLevel(logging.INFO)
+        
+        # Clear existing handlers
+        logger.handlers.clear()
+        
+        # File handler with rotation
+        log_file = log_dir / "file_organizer.log"
+        file_handler = logging.FileHandler(log_file, encoding='utf-8')
+        file_handler.setLevel(logging.INFO)
+        
+        # Console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        
+        # Formatter
+        formatter = logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        
+        file_handler.setFormatter(formatter)
+        console_handler.setFormatter(formatter)
+        
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+        
+        return logger
     
     def load_config(self):
         """Load configuration from JSON file."""
         if not self.config_file.exists():
-            print(f"❌ Configuration file not found: {self.config_file}")
-            print("Creating default configuration file...")
+            self.logger.warning(f"Configuration file not found: {self.config_file}")
+            self.logger.info("Creating default configuration file...")
             self.create_default_config()
             return
         
@@ -33,16 +72,16 @@ class FileOrganizerConfig:
             
             self.settings = config.get("settings", {})
             
-            print(f"✅ Loaded configuration from {self.config_file}")
-            print(f"📊 Monitoring {len(self.file_extensions)} file types")
+            self.logger.info(f"Configuration loaded successfully from {self.config_file}")
+            self.logger.info(f"Monitoring {len(self.file_extensions)} file types")
             
         except json.JSONDecodeError as e:
-            print(f"❌ Error parsing JSON config: {e}")
-            print("Using default configuration...")
+            self.logger.error(f"Error parsing JSON config: {e}")
+            self.logger.info("Using default configuration...")
             self.create_default_config()
         except Exception as e:
-            print(f"❌ Error loading config: {e}")
-            print("Using default configuration...")
+            self.logger.error(f"Error loading config: {e}")
+            self.logger.info("Using default configuration...")
             self.create_default_config()
     
     def create_default_config(self):
@@ -61,6 +100,7 @@ class FileOrganizerConfig:
             "create_folders": True,
             "case_sensitive": False
         }
+        self.logger.info("Created default configuration")
     
     def get_destination_folder(self, file_extension):
         """Get the destination folder for a file based on its extension."""
@@ -76,50 +116,87 @@ class FileOrganizerConfig:
     
     def reload_config(self):
         """Reload configuration from file."""
-        print("🔄 Reloading configuration...")
+        self.logger.info("Reloading configuration...")
+        old_count = len(self.file_extensions)
         self.load_config()
+        new_count = len(self.file_extensions)
+        if new_count != old_count:
+            self.logger.info(f"Configuration updated: {old_count} → {new_count} file types")
 
 def move_file(source_path, file_name, config):
     """Move file to appropriate folder based on extension and configuration."""
+    logger = config.logger
     file_path = Path(source_path) / file_name
     file_extension = file_path.suffix
     
     # Skip if no extension
     if not file_extension:
-        print(f"  → Skipping {file_name} (no extension)")
+        logger.debug(f"Skipping {file_name} (no extension)")
         return None
     
     # Get destination folder from config
     dest_folder = config.get_destination_folder(file_extension)
     
+    # Log the intended move
+    logger.info(f"Processing file: {file_name} ({file_extension}) → {dest_folder.name}")
+    
     # Create destination folder if enabled in settings
     if config.settings.get("create_folders", True):
-        dest_folder.mkdir(parents=True, exist_ok=True)
+        if not dest_folder.exists():
+            logger.info(f"Creating destination folder: {dest_folder}")
+            dest_folder.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Created folder: {dest_folder}")
     elif not dest_folder.exists():
-        print(f"  → Destination folder doesn't exist: {dest_folder}")
+        logger.error(f"Destination folder doesn't exist: {dest_folder}")
         return None
     
     # Destination file path
     dest_path = dest_folder / file_name
+    original_dest_path = dest_path
     
     # Handle file name conflicts if enabled
     if config.settings.get("handle_duplicates", True):
         counter = 1
-        original_dest_path = dest_path
         while dest_path.exists():
             name_part = original_dest_path.stem
             ext_part = original_dest_path.suffix
-            dest_path = dest_folder / f"{name_part}_{counter}{ext_part}"
+            new_name = f"{name_part}_{counter}{ext_part}"
+            dest_path = dest_folder / new_name
             counter += 1
+            
+        if dest_path != original_dest_path:
+            logger.info(f"File renamed to avoid conflict: {file_name} → {dest_path.name}")
+            
     elif dest_path.exists():
-        print(f"  → File already exists: {dest_path}")
+        logger.warning(f"File already exists, skipping: {dest_path}")
         return None
     
+    # Get file size for logging
     try:
+        file_size = file_path.stat().st_size
+        file_size_mb = file_size / (1024 * 1024)
+    except:
+        file_size_mb = 0
+    
+    # Attempt to move the file
+    try:
+        start_time = time.time()
         shutil.move(str(file_path), str(dest_path))
+        move_time = time.time() - start_time
+        
+        logger.info(f"✅ FILE MOVED: {file_name} → {dest_path}")
+        logger.info(f"   Size: {file_size_mb:.2f} MB, Time: {move_time:.2f}s")
+        
         return dest_path
+        
+    except PermissionError as e:
+        logger.error(f"❌ Permission denied moving {file_name}: {e}")
+        return None
+    except FileNotFoundError as e:
+        logger.error(f"❌ File not found when moving {file_name}: {e}")
+        return None
     except Exception as e:
-        print(f"  → Error moving file {file_name}: {e}")
+        logger.error(f"❌ Error moving file {file_name}: {e}")
         return None
 
 def print_organization_rules(config):
@@ -153,19 +230,27 @@ def monitor_downloads_folder():
     """Monitor the Downloads folder for new files and organize them using JSON config."""
     # Load configuration
     config = FileOrganizerConfig()
+    logger = config.logger
+    
+    # Log startup information
+    logger.info("="*60)
+    logger.info("FILE ORGANIZER STARTED")
+    logger.info(f"Version: JSON-based with live reload")
+    logger.info(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info("="*60)
     
     # Get the Downloads folder path
     downloads_path = Path.home() / "Downloads"
     
     # Check if Downloads folder exists
     if not downloads_path.exists():
-        print(f"❌ Downloads folder not found at: {downloads_path}")
-        print("Please make sure the Downloads folder exists.")
+        logger.error(f"Downloads folder not found at: {downloads_path}")
+        logger.error("Please make sure the Downloads folder exists.")
         return
     
-    print(f"🔍 Monitoring Downloads folder: {downloads_path}")
-    print("📦 Files will be automatically organized based on JSON rules.")
-    print("💡 Edit 'file_rules.json' to customize organization rules.")
+    logger.info(f"Monitoring Downloads folder: {downloads_path}")
+    logger.info("Files will be automatically organized based on JSON rules.")
+    logger.info("Edit 'file_rules.json' to customize organization rules.")
     
     # Show organization rules
     print_organization_rules(config)
@@ -177,8 +262,9 @@ def monitor_downloads_folder():
     previous_files = set()
     try:
         previous_files = set(os.listdir(downloads_path))
+        logger.info(f"Initial scan found {len(previous_files)} files in Downloads folder")
     except OSError as e:
-        print(f"❌ Error accessing Downloads folder: {e}")
+        logger.error(f"Error accessing Downloads folder: {e}")
         return
     
     last_config_check = time.time()
@@ -195,6 +281,7 @@ def monitor_downloads_folder():
                 if config.config_file.exists():
                     file_mtime = config.config_file.stat().st_mtime
                     if file_mtime > last_config_check:
+                        logger.info("Configuration file modified, reloading...")
                         config.reload_config()
                         print_organization_rules(config)
                 last_config_check = current_time
@@ -210,26 +297,35 @@ def monitor_downloads_folder():
                 for file_name in new_files:
                     file_path = downloads_path / file_name
                     if file_path.is_file():  # Only process actual files, not directories
-                        print(f"\n📄 New file detected: {file_name}")
+                        logger.info(f"📄 NEW FILE DETECTED: {file_name}")
                         
                         # Move file to appropriate folder
                         moved_path = move_file(downloads_path, file_name, config)
                         if moved_path:
                             relative_path = moved_path.relative_to(Path.home())
                             print(f"  ✅ Moved to: ~/{relative_path}")
+                            logger.info(f"File successfully organized: {file_name} → ~/{relative_path}")
                         else:
                             print(f"  ❌ Failed to move file")
+                            logger.error(f"Failed to organize file: {file_name}")
                 
                 # Update previous files set
                 previous_files = current_files
                 
             except OSError as e:
+                logger.error(f"Error checking folder: {e}")
                 print(f"❌ Error checking folder: {e}")
                 time.sleep(5)  # Wait longer if there's an error
                 
     except KeyboardInterrupt:
+        logger.info("File monitor stopped by user (Ctrl+C)")
         print("\n\n🛑 Stopping file monitor...")
+    except Exception as e:
+        logger.error(f"Unexpected error in monitor loop: {e}")
+        print(f"\n\n❌ Unexpected error: {e}")
     
+    logger.info("File monitoring session ended")
+    logger.info("="*60)
     print("✨ File monitoring stopped.")
 
 if __name__ == "__main__":
